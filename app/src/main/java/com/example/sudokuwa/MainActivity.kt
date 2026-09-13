@@ -4,6 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,14 +20,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlin.math.sin
+import kotlin.random.Random
 
 // ---------- Палитра ----------
 private val Washi      = Color(0xFFF5EFE6)
@@ -31,6 +44,8 @@ private val Sakura     = Color(0xFFF4B6C2)
 private val SakuraDeep = Color(0xFFE38AA3)
 private val Ai         = Color(0xFF3B5B7A)
 private val ErrorRed   = Color(0xFFB94A48)
+private val SkyTop     = Color(0xFFD6E4EF)
+private val SkyBottom  = Color(0xFFF5EFE6)
 
 // ---------- Модель ----------
 data class Cell(
@@ -136,9 +151,9 @@ class GameViewModel : ViewModel() {
             cells = cells,
             difficulty = d,
             dialogue = when (d) {
-                Difficulty.EASY   -> "Юки: «Не спеши, я рядом»"
-                Difficulty.MEDIUM -> "Сакура: «Покажи, на что ты способен»"
-                Difficulty.HARD   -> "Рэй: «Тишина. Только цифры»"
+                Difficulty.EASY   -> "Не спеши. Всё уже решено — просто найди путь."
+                Difficulty.MEDIUM -> "Покажи, на что ты способен."
+                Difficulty.HARD   -> "Тишина. Только ты и числа. Я наблюдаю."
             }
         )
     }
@@ -146,6 +161,14 @@ class GameViewModel : ViewModel() {
     fun select(i: Int) = _state.update { it.copy(selected = i) }
 
     fun toggleNotes() = _state.update { it.copy(notesMode = !it.notesMode) }
+
+    fun erase() {
+        val s = _state.value
+        val idx = s.selected ?: return
+        val cell = s.cells[idx]
+        if (cell.isFixed) return
+        updateCell(idx, cell.copy(value = 0, isError = false, notes = emptySet()))
+    }
 
     fun input(n: Int) {
         val s = _state.value
@@ -160,7 +183,7 @@ class GameViewModel : ViewModel() {
             val err = n != correct
             updateCell(idx, cell.copy(value = n, isError = err, notes = emptySet()))
             if (err) _state.update {
-                it.copy(mistakes = it.mistakes + 1, dialogue = "Ошибка… попробуй ещё")
+                it.copy(mistakes = it.mistakes + 1, dialogue = "Не спеши. Тени обманчивы.")
             } else checkWin()
         }
     }
@@ -173,7 +196,7 @@ class GameViewModel : ViewModel() {
         if (idx < 0) return
         val correct = solution[idx / 9][idx % 9]
         updateCell(idx, s.cells[idx].copy(value = correct, isError = false, notes = emptySet()))
-        _state.update { it.copy(hintsLeft = it.hintsLeft - 1, dialogue = "Подсказка: $correct") }
+        _state.update { it.copy(hintsLeft = it.hintsLeft - 1, dialogue = "Смотри внимательно. Здесь — $correct.") }
         checkWin()
     }
 
@@ -187,7 +210,7 @@ class GameViewModel : ViewModel() {
         val flat = _state.value.cells.map { it.value }.toIntArray()
         val b = Array(9) { r -> IntArray(9) { c -> flat[r * 9 + c] } }
         if (Sudoku.isSolved(b)) _state.update {
-            it.copy(isWon = true, dialogue = "Ты справился!")
+            it.copy(isWon = true, dialogue = "Ты прошёл путь. Отдохни. Следующий будет труднее.")
         }
     }
 }
@@ -218,108 +241,78 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GameScreen(vm: GameViewModel) {
     val s by vm.state.collectAsState()
+    val context = LocalContext.current
+
+    val himikoRes = remember {
+        context.resources.getIdentifier("himiko", "drawable", context.packageName)
+    }
 
     Box(Modifier.fillMaxSize().background(Washi)) {
-        Column(
-            Modifier.fillMaxSize().padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                Arrangement.SpaceBetween,
-                Alignment.CenterVertically
-            ) {
-                Text("Судоку", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Sumi)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ошибки: ${s.mistakes}", color = ErrorRed, fontSize = 13.sp)
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = { vm.newGame(s.difficulty) }) { Text("Новая") }
-                }
-            }
+        Column(Modifier.fillMaxSize()) {
 
-            Row(
-                Modifier.fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Washi)
-                    .border(1.dp, Sakura.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // ---- ВЕРХ: персонаж ----
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(
+                        Brush.verticalGradient(listOf(SkyTop, SkyBottom))
+                    )
             ) {
-                Text("👘", fontSize = 34.sp)
-                Spacer(Modifier.width(8.dp))
-                Text(s.dialogue, fontSize = 13.sp, color = Sumi)
-            }
-            Spacer(Modifier.height(10.dp))
+                SakuraPetals(Modifier.fillMaxSize())
 
-            Column(
-                Modifier.aspectRatio(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Washi)
-                    .border(2.dp, Sumi, RoundedCornerShape(10.dp))
-            ) {
-                for (r in 0..8) {
-                    Row(Modifier.weight(1f)) {
-                        for (c in 0..8) {
-                            val idx = r * 9 + c
-                            CellView(
-                                cell = s.cells[idx],
-                                selected = s.selected == idx,
-                                mod = Modifier.weight(1f).fillMaxHeight()
-                                    .border(
-                                        if (r % 3 == 0 || c % 3 == 0) 1.dp else 0.5.dp,
-                                        Sumi.copy(alpha = 0.5f)
-                                    )
-                                    .clickable { vm.select(idx) }
-                            )
-                        }
-                    }
+                if (himikoRes != 0) {
+                    Image(
+                        painter = painterResource(himikoRes),
+                        contentDescription = "Химико",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .align(Alignment.Center),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        "👘",
+                        fontSize = 96.sp,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
-            }
-            Spacer(Modifier.height(12.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (n in 1..5) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Washi,
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.size(52.dp).clickable { vm.input(n) }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(n.toString(), fontSize = 22.sp, color = Sumi)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (n in 6..9) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Washi,
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.size(52.dp).clickable { vm.input(n) }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(n.toString(), fontSize = 22.sp, color = Sumi)
-                        }
-                    }
-                }
-                Surface(
-                    shape = CircleShape,
-                    color = if (s.notesMode) Sakura else Washi,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.size(52.dp).clickable { vm.toggleNotes() }
+                DialogueBubble(
+                    text = s.dialogue,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+
+                TextButton(
+                    onClick = { vm.newGame(s.difficulty) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(if (s.notesMode) "ON" else "ЗМ", fontSize = 16.sp, color = Sumi)
-                    }
+                    Text("Новая", color = Sumi)
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = vm::hint, enabled = s.hintsLeft > 0) {
-                Text("Подсказка (${s.hintsLeft})")
+
+            // ---- ЦЕНТР: поле судоку ----
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                SudokuBoard(state = s, onSelect = vm::select)
             }
+
+            // ---- НИЗ: кнопки ----
+            ControlsPanel(
+                state = s,
+                onInput = vm::input,
+                onNotes = vm::toggleNotes,
+                onErase = vm::erase,
+                onHint = vm::hint
+            )
         }
 
         if (s.isWon) {
@@ -340,6 +333,181 @@ fun GameScreen(vm: GameViewModel) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SudokuBoard(state: GameState, onSelect: (Int) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Washi)
+            .border(2.dp, Sumi, RoundedCornerShape(10.dp))
+    ) {
+        for (r in 0..8) {
+            Row(Modifier.weight(1f)) {
+                for (c in 0..8) {
+                    val idx = r * 9 + c
+                    CellView(
+                        cell = state.cells[idx],
+                        selected = state.selected == idx,
+                        mod = Modifier.weight(1f).fillMaxHeight()
+                            .border(
+                                if (r % 3 == 0 || c % 3 == 0) 1.dp else 0.5.dp,
+                                Sumi.copy(alpha = 0.5f)
+                            )
+                            .clickable { onSelect(idx) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ControlsPanel(
+    state: GameState,
+    onInput: (Int) -> Unit,
+    onNotes: () -> Unit,
+    onErase: () -> Unit,
+    onHint: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (n in 1..5) NumButton(n, onInput)
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (n in 6..9) NumButton(n, onInput)
+            RoundButton(label = "⌫", active = false, onClick = onErase)
+            RoundButton(label = if (state.notesMode) "✎ON" else "✎", active = state.notesMode, onClick = onNotes)
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onHint,
+            enabled = state.hintsLeft > 0,
+            modifier = Modifier.fillMaxWidth(0.7f)
+        ) {
+            Text("Подсказка (${state.hintsLeft})")
+        }
+    }
+}
+
+@Composable
+private fun NumButton(n: Int, onClick: (Int) -> Unit) {
+    Surface(
+        shape = CircleShape,
+        color = Washi,
+        shadowElevation = 2.dp,
+        modifier = Modifier.size(52.dp).clickable { onClick(n) }
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(n.toString(), fontSize = 22.sp, color = Sumi)
+        }
+    }
+}
+
+@Composable
+private fun RoundButton(label: String, active: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = CircleShape,
+        color = if (active) Sakura else Washi,
+        shadowElevation = 2.dp,
+        modifier = Modifier.size(52.dp).clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, fontSize = 16.sp, color = Sumi, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun DialogueBubble(text: String, modifier: Modifier = Modifier) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(text) {
+        visible = false
+        delay(60)
+        visible = true
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
+        modifier = modifier
+    ) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = Washi.copy(alpha = 0.92f),
+            shadowElevation = 4.dp
+        ) {
+            Row(
+                Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = text,
+                    fontSize = 13.sp,
+                    color = Sumi,
+                    lineHeight = 17.sp
+                )
+            }
+        }
+    }
+}
+
+private data class Petal(
+    val x0: Float,
+    val y0: Float,
+    val speed: Float,
+    val sway: Float,
+    val swaySpeed: Float,
+    val size: Float,
+    val alpha: Float
+)
+
+@Composable
+private fun SakuraPetals(modifier: Modifier = Modifier) {
+    val petals = remember {
+        List(22) {
+            Petal(
+                x0 = Random.nextFloat(),
+                y0 = Random.nextFloat(),
+                speed = 0.04f + Random.nextFloat() * 0.07f,
+                sway = 0.015f + Random.nextFloat() * 0.04f,
+                swaySpeed = 0.5f + Random.nextFloat() * 1.2f,
+                size = 4f + Random.nextFloat() * 6f,
+                alpha = 0.35f + Random.nextFloat() * 0.5f
+            )
+        }
+    }
+    var time by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(Unit) {
+        val start = withFrameNanos { it }
+        while (true) {
+            withFrameNanos { now ->
+                time = (now - start) / 1_000_000_000f
+            }
+        }
+    }
+
+    Canvas(modifier) {
+        petals.forEach { p ->
+            val y = ((p.y0 + time * p.speed) % 1.2f) - 0.1f
+            val x = p.x0 + sin(time * p.swaySpeed) * p.sway
+            drawCircle(
+                color = Sakura.copy(alpha = p.alpha),
+                radius = p.size,
+                center = Offset(x * size.width, y * size.height)
+            )
         }
     }
 }
