@@ -136,7 +136,7 @@ class GameViewModel : ViewModel() {
             cells = cells,
             difficulty = d,
             dialogue = when (d) {
-                Difficulty.EASY   -> "🌸 Юки: «Не спеши, я рядом»"
+                Difficulty.EASY   -> "Юки: «Не спеши, я рядом»"
                 Difficulty.MEDIUM -> "Сакура: «Покажи, на что ты способен»"
                 Difficulty.HARD   -> "Рэй: «Тишина. Только цифры»"
             }
@@ -187,7 +187,7 @@ class GameViewModel : ViewModel() {
         val flat = _state.value.cells.map { it.value }.toIntArray()
         val b = Array(9) { r -> IntArray(9) { c -> flat[r * 9 + c] } }
         if (Sudoku.isSolved(b)) _state.update {
-            it.copy(isWon = true, dialogue = "✨ Ты справился!")
+            it.copy(isWon = true, dialogue = "Ты справился!")
         }
     }
 }
@@ -229,7 +229,7 @@ fun GameScreen(vm: GameViewModel) {
                 Arrangement.SpaceBetween,
                 Alignment.CenterVertically
             ) {
-                Text("数独", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Sumi)
+                Text("Судоку", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Sumi)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Ошибки: ${s.mistakes}", color = ErrorRed, fontSize = 13.sp)
                     Spacer(Modifier.width(8.dp))
@@ -278,27 +278,47 @@ fun GameScreen(vm: GameViewModel) {
             Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (n in 1..9) {
+                for (n in 1..5) {
                     Surface(
                         shape = CircleShape,
                         color = Washi,
                         shadowElevation = 2.dp,
-                        modifier = Modifier.size(40.dp).clickable { vm.input(n) }
+                        modifier = Modifier.size(52.dp).clickable { vm.input(n) }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(n.toString(), fontSize = 18.sp, color = Sumi)
+                            Text(n.toString(), fontSize = 22.sp, color = Sumi)
                         }
                     }
                 }
             }
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (n in 6..9) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Washi,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.size(52.dp).clickable { vm.input(n) }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(n.toString(), fontSize = 22.sp, color = Sumi)
+                        }
+                    }
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = if (s.notesMode) Sakura else Washi,
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.size(52.dp).clickable { vm.toggleNotes() }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(if (s.notesMode) "ON" else "ЗМ", fontSize = 16.sp, color = Sumi)
+                    }
+                }
+            }
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = vm::toggleNotes) {
-                    Text(if (s.notesMode) "✎ ON" else "✎")
-                }
-                OutlinedButton(onClick = vm::hint, enabled = s.hintsLeft > 0) {
-                    Text("助 (${s.hintsLeft})")
-                }
+            OutlinedButton(onClick = vm::hint, enabled = s.hintsLeft > 0) {
+                Text("Подсказка (${s.hintsLeft})")
             }
         }
 
@@ -312,8 +332,10 @@ fun GameScreen(vm: GameViewModel) {
                         Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("完成!", fontSize = 32.sp, color = SakuraDeep)
+                        Text("Готово!", fontSize = 32.sp, color = SakuraDeep)
                         Spacer(Modifier.height(8.dp))
+                        Text("Ты решил судоку", color = Sumi)
+                        Spacer(Modifier.height(12.dp))
                         Button(onClick = { vm.newGame(s.difficulty) }) { Text("Ещё раз") }
                     }
                 }
