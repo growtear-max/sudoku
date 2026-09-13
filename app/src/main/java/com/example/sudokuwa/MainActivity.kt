@@ -4,9 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -21,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -29,8 +25,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -44,8 +42,6 @@ private val Sakura     = Color(0xFFF4B6C2)
 private val SakuraDeep = Color(0xFFE38AA3)
 private val Ai         = Color(0xFF3B5B7A)
 private val ErrorRed   = Color(0xFFB94A48)
-private val SkyTop     = Color(0xFFD6E4EF)
-private val SkyBottom  = Color(0xFFF5EFE6)
 
 // ---------- Модель ----------
 data class Cell(
@@ -65,7 +61,7 @@ data class GameState(
     val hintsLeft: Int = 3,
     val difficulty: Difficulty = Difficulty.EASY,
     val isWon: Boolean = false,
-    val dialogue: String = "Привет! Начнём?"
+    val dialogue: String = ""
 )
 
 // ---------- Движок судоку ----------
@@ -210,7 +206,7 @@ class GameViewModel : ViewModel() {
         val flat = _state.value.cells.map { it.value }.toIntArray()
         val b = Array(9) { r -> IntArray(9) { c -> flat[r * 9 + c] } }
         if (Sudoku.isSolved(b)) _state.update {
-            it.copy(isWon = true, dialogue = "Ты прошёл путь. Отдохни. Следующий будет труднее.")
+            it.copy(isWon = true, dialogue = "Ты прошёл путь.")
         }
     }
 }
@@ -221,6 +217,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Fullscreen: content заходит под статус-бар и системные панели
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.statusBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -232,6 +234,17 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 Surface(Modifier.fillMaxSize(), color = Washi) { GameScreen(vm) }
+            }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            // Повторно скрываем статус-бар при возврате в приложение
+            WindowInsetsControllerCompat(window, window.decorView).apply {
+                hide(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         }
     }
@@ -250,14 +263,11 @@ fun GameScreen(vm: GameViewModel) {
     Box(Modifier.fillMaxSize().background(Washi)) {
         Column(Modifier.fillMaxSize()) {
 
-            // ---- ВЕРХ: персонаж ----
+            // ---- ВЕРХ: персонаж (растягивается на всё доступное пространство) ----
             Box(
                 Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(
-                        Brush.verticalGradient(listOf(SkyTop, SkyBottom))
-                    )
             ) {
                 SakuraPetals(Modifier.fillMaxSize())
 
@@ -265,9 +275,7 @@ fun GameScreen(vm: GameViewModel) {
                     Image(
                         painter = painterResource(himikoRes),
                         contentDescription = "Химико",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .align(Alignment.Center),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -278,32 +286,25 @@ fun GameScreen(vm: GameViewModel) {
                     )
                 }
 
-                DialogueBubble(
-                    text = s.dialogue,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                )
-
+                // Кнопка "Новая" в правом верхнем углу
                 TextButton(
                     onClick = { vm.newGame(s.difficulty) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp)
+                        .padding(top = 8.dp, end = 8.dp)
                 ) {
                     Text("Новая", color = Sumi)
                 }
             }
 
-            // ---- ЦЕНТР: поле судоку ----
-            Box(
-                Modifier
+            // ---- ЦЕНТР-НИЗ: поле судоку прижато к кнопкам ----
+            SudokuBoard(
+                state = s,
+                onSelect = vm::select,
+                modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                SudokuBoard(state = s, onSelect = vm::select)
-            }
+                    .padding(horizontal = 10.dp)
+            )
 
             // ---- НИЗ: кнопки ----
             ControlsPanel(
@@ -338,10 +339,13 @@ fun GameScreen(vm: GameViewModel) {
 }
 
 @Composable
-private fun SudokuBoard(state: GameState, onSelect: (Int) -> Unit) {
+private fun SudokuBoard(
+    state: GameState,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
-        Modifier
-            .fillMaxWidth()
+        modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(10.dp))
             .background(Washi)
@@ -378,36 +382,60 @@ private fun ControlsPanel(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (n in 1..5) NumButton(n, onInput)
+        // Ряд 1: 1 2 3 4 5 ✎
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            for (n in 1..5) {
+                NumButton(n, onInput, Modifier.weight(1f))
+            }
+            IconButton(
+                label = if (state.notesMode) "ON" else "✎",
+                active = state.notesMode,
+                onClick = onNotes,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        // Ряд 2: 6 7 8 9 ⌫
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            for (n in 6..9) {
+                NumButton(n, onInput, Modifier.weight(1f))
+            }
+            IconButton(
+                label = "⌫",
+                active = false,
+                onClick = onErase,
+                modifier = Modifier.weight(1f)
+            )
         }
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (n in 6..9) NumButton(n, onInput)
-            RoundButton(label = "⌫", active = false, onClick = onErase)
-            RoundButton(label = if (state.notesMode) "✎ON" else "✎", active = state.notesMode, onClick = onNotes)
-        }
-        Spacer(Modifier.height(8.dp))
         OutlinedButton(
             onClick = onHint,
             enabled = state.hintsLeft > 0,
-            modifier = Modifier.fillMaxWidth(0.7f)
+            modifier = Modifier.fillMaxWidth(0.65f)
         ) {
-            Text("Подсказка (${state.hintsLeft})")
+            Text("Подсказка (${state.hintsLeft})", color = SakuraDeep)
         }
     }
 }
 
 @Composable
-private fun NumButton(n: Int, onClick: (Int) -> Unit) {
+private fun NumButton(n: Int, onClick: (Int) -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = CircleShape,
         color = Washi,
         shadowElevation = 2.dp,
-        modifier = Modifier.size(52.dp).clickable { onClick(n) }
+        modifier = modifier
+            .aspectRatio(1f)
+            .clickable { onClick(n) }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(n.toString(), fontSize = 22.sp, color = Sumi)
@@ -416,49 +444,22 @@ private fun NumButton(n: Int, onClick: (Int) -> Unit) {
 }
 
 @Composable
-private fun RoundButton(label: String, active: Boolean, onClick: () -> Unit) {
+private fun IconButton(
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
         shape = CircleShape,
         color = if (active) Sakura else Washi,
         shadowElevation = 2.dp,
-        modifier = Modifier.size(52.dp).clickable(onClick = onClick)
+        modifier = modifier
+            .aspectRatio(1f)
+            .clickable(onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(label, fontSize = 16.sp, color = Sumi, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun DialogueBubble(text: String, modifier: Modifier = Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(text) {
-        visible = false
-        delay(60)
-        visible = true
-    }
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
-        modifier = modifier
-    ) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = Washi.copy(alpha = 0.92f),
-            shadowElevation = 4.dp
-        ) {
-            Row(
-                Modifier.padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = text,
-                    fontSize = 13.sp,
-                    color = Sumi,
-                    lineHeight = 17.sp
-                )
-            }
+            Text(label, fontSize = 18.sp, color = Sumi, fontWeight = FontWeight.Medium)
         }
     }
 }
