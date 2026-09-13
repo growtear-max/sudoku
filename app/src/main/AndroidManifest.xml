@@ -3,7 +3,7 @@
 
     <application
         android:label="Судоку Wa"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
             android:exported="true">
