@@ -282,10 +282,8 @@ private fun VideoBackground(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            val uri = androidx.media3.common.util.Util.getResourceUri(
-                context, R.raw.loop
-            )
-            setMediaItem(MediaItem.fromUri(uri))
+            val uriString = "android.resource://${context.packageName}/${R.raw.loop}"
+            setMediaItem(MediaItem.fromUri(uriString))
             repeatMode = Player.REPEAT_MODE_ALL
             volume = 0f
             playWhenReady = true
@@ -343,7 +341,6 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
     }
 
     Box(Modifier.fillMaxSize().background(Washi)) {
-        // Фон: видео (если есть) или картинка, или пусто
         if (hasVideo) {
             VideoBackground(Modifier.fillMaxSize())
         } else if (fallbackRes != 0) {
@@ -355,13 +352,9 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
             )
         }
 
-        // Лепестки сакуры поверх видео
         SakuraPetals(Modifier.fillMaxSize())
-
-        // Виньетка
         Vignette(Modifier.fillMaxSize())
 
-        // Градиент для читаемости текста сверху и снизу
         Box(
             Modifier
                 .fillMaxSize()
