@@ -5,11 +5,14 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,13 +20,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -354,15 +362,16 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
 
         Vignette(Modifier.fillMaxSize())
 
+        // Градиенты для читаемости: сверху мягко, снизу сильнее
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.35f),
-                        0.30f to Color.Transparent,
-                        0.60f to Color.Transparent,
-                        1.0f to Color.Black.copy(alpha = 0.55f)
+                        0.0f to Color.Black.copy(alpha = 0.40f),
+                        0.20f to Color.Transparent,
+                        0.55f to Color.Transparent,
+                        1.0f to Color.Black.copy(alpha = 0.65f)
                     )
                 )
         )
@@ -370,89 +379,137 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(70.dp))
 
             Text(
                 "Судоку",
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Bold,
-                color = Washi
+                fontSize = 52.sp,
+                fontWeight = FontWeight.Light,
+                color = Washi,
+                letterSpacing = 6.sp,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        offset = Offset(0f, 3f),
+                        blurRadius = 12f
+                    )
+                )
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 "г а р м о н и я   ч и с е л",
-                fontSize = 14.sp,
-                color = Washi.copy(alpha = 0.85f)
+                fontSize = 12.sp,
+                color = Washi.copy(alpha = 0.75f),
+                letterSpacing = 4.sp,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        offset = Offset(0f, 2f),
+                        blurRadius = 8f
+                    )
+                )
             )
 
             Spacer(Modifier.weight(1f))
 
-            DifficultyButton(
+            MenuTextButton(
                 title = "Лёгкий",
                 subtitle = "для спокойного вечера",
-                accent = Color(0xFF8BA888),
                 onClick = { onDifficultySelected(Difficulty.EASY) }
             )
-            Spacer(Modifier.height(10.dp))
-            DifficultyButton(
+            Spacer(Modifier.height(26.dp))
+            MenuTextButton(
                 title = "Средний",
                 subtitle = "требует сосредоточенности",
-                accent = Sakura,
                 onClick = { onDifficultySelected(Difficulty.MEDIUM) }
             )
-            Spacer(Modifier.height(10.dp))
-            DifficultyButton(
+            Spacer(Modifier.height(26.dp))
+            MenuTextButton(
                 title = "Сложный",
                 subtitle = "для мастеров",
-                accent = Ai,
                 onClick = { onDifficultySelected(Difficulty.HARD) }
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(40.dp))
 
-            TextButton(onClick = { /* later */ }) {
-                Text("О игре", color = Washi.copy(alpha = 0.7f), fontSize = 14.sp)
-            }
+            MenuTextButton(
+                title = "О игре",
+                subtitle = null,
+                small = true,
+                onClick = { /* later */ }
+            )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(48.dp))
         }
     }
 }
 
 @Composable
-private fun DifficultyButton(
+private fun MenuTextButton(
     title: String,
-    subtitle: String,
-    accent: Color,
+    subtitle: String?,
+    small: Boolean = false,
     onClick: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Washi.copy(alpha = 0.92f),
-        shadowElevation = 4.dp,
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val alpha by animateFloatAsState(if (pressed) 0.55f else 1f, label = "alpha")
+    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "scale")
+
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(accent)
+            .scale(scale)
+            .alpha(alpha)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick
             )
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Sumi)
-                Text(subtitle, fontSize = 12.sp, color = Sumi.copy(alpha = 0.6f))
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Тонкая вертикальная черта-«мазок» слева
+        Box(
+            Modifier
+                .width(2.dp)
+                .height(if (small) 18.dp else 40.dp)
+                .background(Washi.copy(alpha = 0.65f))
+        )
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(
+                text = title,
+                fontSize = if (small) 18.sp else 30.sp,
+                fontWeight = FontWeight.Light,
+                color = Washi,
+                letterSpacing = if (small) 4.sp else 2.sp,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        offset = Offset(0f, 2f),
+                        blurRadius = 10f
+                    )
+                )
+            )
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = Washi.copy(alpha = 0.65f),
+                    letterSpacing = 1.sp,
+                    style = TextStyle(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            offset = Offset(0f, 1f),
+                            blurRadius = 6f
+                        )
+                    )
+                )
             }
-            Text("›", fontSize = 24.sp, color = Sumi.copy(alpha = 0.4f))
         }
     }
 }
