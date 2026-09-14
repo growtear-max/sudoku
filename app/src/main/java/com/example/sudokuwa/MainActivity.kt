@@ -5,7 +5,13 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -27,7 +33,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -268,11 +273,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot(vm: GameViewModel) {
     var screen by remember { mutableStateOf(Screen.MENU) }
+    var hasActiveGame by remember { mutableStateOf(false) }
 
     when (screen) {
         Screen.MENU -> MainMenuScreen(
-            onDifficultySelected = { diff ->
+            hasActiveGame = hasActiveGame,
+            onContinue = { screen = Screen.GAME },
+            onNewGame = { diff ->
                 vm.newGame(diff)
+                hasActiveGame = true
                 screen = Screen.GAME
             }
         )
@@ -339,7 +348,11 @@ private fun Vignette(modifier: Modifier = Modifier) {
 
 // ---------- Главное меню ----------
 @Composable
-private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
+private fun MainMenuScreen(
+    hasActiveGame: Boolean,
+    onContinue: () -> Unit,
+    onNewGame: (Difficulty) -> Unit
+) {
     val context = LocalContext.current
     val hasVideo = remember {
         context.resources.getIdentifier("loop", "raw", context.packageName) != 0
@@ -348,7 +361,17 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
         context.resources.getIdentifier("garden_menu", "drawable", context.packageName)
     }
 
+    var newGameOpen by remember { mutableStateOf(false) }
+
+    // Прозрачность остальных кнопок — плавно исчезают при открытии подменю
+    val othersAlpha by animateFloatAsState(
+        targetValue = if (newGameOpen) 0f else 1f,
+        animationSpec = tween(durationMillis = 350),
+        label = "othersAlpha"
+    )
+
     Box(Modifier.fillMaxSize().background(Washi)) {
+        // Видео-фон
         if (hasVideo) {
             VideoBackground(Modifier.fillMaxSize())
         } else if (fallbackRes != 0) {
@@ -360,132 +383,191 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
             )
         }
 
+        // Виньетка
         Vignette(Modifier.fillMaxSize())
 
-        // Градиенты для читаемости: сверху мягко, снизу сильнее
+        // Градиенты: верх чуть темнее для читаемости заголовка, низ — для кнопок
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.40f),
-                        0.20f to Color.Transparent,
+                        0.0f to Color.Black.copy(alpha = 0.55f),
+                        0.18f to Color.Transparent,
                         0.55f to Color.Transparent,
-                        1.0f to Color.Black.copy(alpha = 0.65f)
+                        1.0f to Color.Black.copy(alpha = 0.55f)
                     )
                 )
         )
 
+        // Контент
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp)
         ) {
-            Spacer(Modifier.height(70.dp))
+            // ---------- Заголовок ----------
+            Spacer(Modifier.height(60.dp))
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Судоку",
+                    fontSize = 50.sp,
+                    fontWeight = FontWeight.Light,
+                    color = Washi,
+                    letterSpacing = 6.sp,
+                    style = TextStyle(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.75f),
+                            offset = Offset(0f, 3f),
+                            blurRadius = 14f
+                        )
+                    )
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "г а р м о н и я   ч и с е л",
+                    fontSize = 12.sp,
+                    color = Washi.copy(alpha = 0.8f),
+                    letterSpacing = 4.sp,
+                    style = TextStyle(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            offset = Offset(0f, 2f),
+                            blurRadius = 8f
+                        )
+                    )
+                )
+            }
 
-            Text(
-                "Судоку",
-                fontSize = 52.sp,
-                fontWeight = FontWeight.Light,
-                color = Washi,
-                letterSpacing = 6.sp,
-                style = TextStyle(
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        offset = Offset(0f, 3f),
-                        blurRadius = 12f
-                    )
+            // ---------- Продолжить ----------
+            Spacer(Modifier.weight(0.95f))
+
+            Box(Modifier.alpha(othersAlpha).padding(start = 32.dp)) {
+                MenuTextButton(
+                    title = "Продолжить",
+                    enabled = hasActiveGame && !newGameOpen,
+                    onClick = onContinue
                 )
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "г а р м о н и я   ч и с е л",
-                fontSize = 12.sp,
-                color = Washi.copy(alpha = 0.75f),
-                letterSpacing = 4.sp,
-                style = TextStyle(
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        offset = Offset(0f, 2f),
-                        blurRadius = 8f
-                    )
+            }
+
+            // ---------- Новая игра ----------
+            Spacer(Modifier.height(36.dp))
+
+            Box(Modifier.padding(start = 0.dp)) {
+                MenuTextButton(
+                    title = "Новая игра",
+                    enabled = true,
+                    onClick = { newGameOpen = !newGameOpen }
                 )
-            )
+            }
+
+            // ---------- Подменю сложности ----------
+            AnimatedVisibility(
+                visible = newGameOpen,
+                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { -it / 4 },
+                exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it / 4 }
+            ) {
+                Column(Modifier.padding(start = 40.dp, top = 12.dp)) {
+                    MenuTextButton(
+                        title = "Лёгкая",
+                        small = true,
+                        onClick = { onNewGame(Difficulty.EASY) }
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    MenuTextButton(
+                        title = "Средняя",
+                        small = true,
+                        onClick = { onNewGame(Difficulty.MEDIUM) }
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    MenuTextButton(
+                        title = "Сложная",
+                        small = true,
+                        onClick = { onNewGame(Difficulty.HARD) }
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    MenuTextButton(
+                        title = "← Назад",
+                        small = true,
+                        onClick = { newGameOpen = false }
+                    )
+                }
+            }
+
+            // ---------- Настройки ----------
+            Spacer(Modifier.height(36.dp))
+
+            Box(Modifier.alpha(othersAlpha).padding(start = 60.dp)) {
+                MenuTextButton(
+                    title = "Настройки",
+                    enabled = !newGameOpen,
+                    onClick = { /* later */ }
+                )
+            }
+
+            // ---------- Об игре ----------
+            Spacer(Modifier.height(20.dp))
+
+            Box(Modifier.alpha(othersAlpha).padding(start = 92.dp)) {
+                MenuTextButton(
+                    title = "Об игре",
+                    enabled = !newGameOpen,
+                    onClick = { /* later */ }
+                )
+            }
 
             Spacer(Modifier.weight(1f))
-
-            MenuTextButton(
-                title = "Лёгкий",
-                subtitle = "для спокойного вечера",
-                onClick = { onDifficultySelected(Difficulty.EASY) }
-            )
-            Spacer(Modifier.height(26.dp))
-            MenuTextButton(
-                title = "Средний",
-                subtitle = "требует сосредоточенности",
-                onClick = { onDifficultySelected(Difficulty.MEDIUM) }
-            )
-            Spacer(Modifier.height(26.dp))
-            MenuTextButton(
-                title = "Сложный",
-                subtitle = "для мастеров",
-                onClick = { onDifficultySelected(Difficulty.HARD) }
-            )
-
-            Spacer(Modifier.height(40.dp))
-
-            MenuTextButton(
-                title = "О игре",
-                subtitle = null,
-                small = true,
-                onClick = { /* later */ }
-            )
-
-            Spacer(Modifier.height(48.dp))
         }
     }
 }
 
+// ---------- Кнопка-текст с чертой слева ----------
 @Composable
 private fun MenuTextButton(
     title: String,
-    subtitle: String?,
+    subtitle: String? = null,
+    enabled: Boolean = true,
     small: Boolean = false,
     onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val alpha by animateFloatAsState(if (pressed) 0.55f else 1f, label = "alpha")
-    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "scale")
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && enabled) 0.96f else 1f,
+        label = "scale"
+    )
+
+    val textColor     = if (enabled) Washi else Washi.copy(alpha = 0.32f)
+    val barColor      = if (enabled) Washi.copy(alpha = 0.7f) else Washi.copy(alpha = 0.18f)
+    val subtitleColor = if (enabled) Washi.copy(alpha = 0.65f) else Washi.copy(alpha = 0.22f)
 
     Row(
         modifier = Modifier
             .scale(scale)
-            .alpha(alpha)
             .clickable(
+                enabled = enabled,
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick
             )
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Тонкая вертикальная черта-«мазок» слева
+        // Вертикальная черта-«мазок» слева
         Box(
             Modifier
                 .width(2.dp)
-                .height(if (small) 18.dp else 40.dp)
-                .background(Washi.copy(alpha = 0.65f))
+                .height(if (small) 26.dp else 38.dp)
+                .background(barColor)
         )
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(14.dp))
         Column {
             Text(
                 text = title,
-                fontSize = if (small) 18.sp else 30.sp,
-                fontWeight = FontWeight.Light,
-                color = Washi,
-                letterSpacing = if (small) 4.sp else 2.sp,
+                fontSize = if (small) 22.sp else 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                letterSpacing = 1.sp,
                 style = TextStyle(
                     shadow = Shadow(
                         color = Color.Black.copy(alpha = 0.7f),
@@ -499,7 +581,7 @@ private fun MenuTextButton(
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
-                    color = Washi.copy(alpha = 0.65f),
+                    color = subtitleColor,
                     letterSpacing = 1.sp,
                     style = TextStyle(
                         shadow = Shadow(
