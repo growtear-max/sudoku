@@ -35,12 +35,11 @@ import androidx.lifecycle.ViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlin.math.sin
-import kotlin.random.Random
 
 // ---------- Палитра ----------
 private val Washi      = Color(0xFFF5EFE6)
@@ -300,6 +299,7 @@ private fun VideoBackground(modifier: Modifier = Modifier) {
             PlayerView(ctx).apply {
                 player = exoPlayer
                 useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
@@ -352,7 +352,6 @@ private fun MainMenuScreen(onDifficultySelected: (Difficulty) -> Unit) {
             )
         }
 
-        SakuraPetals(Modifier.fillMaxSize())
         Vignette(Modifier.fillMaxSize())
 
         Box(
@@ -471,7 +470,6 @@ fun GameScreen(vm: GameViewModel, onBackToMenu: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Washi)) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxWidth().weight(1f)) {
-                SakuraPetals(Modifier.fillMaxSize())
                 if (himikoRes != 0) {
                     Image(
                         painter = painterResource(himikoRes),
@@ -636,55 +634,6 @@ private fun IconBtn(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(label, fontSize = 18.sp, color = Sumi, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-private data class Petal(
-    val x0: Float,
-    val y0: Float,
-    val speed: Float,
-    val sway: Float,
-    val swaySpeed: Float,
-    val size: Float,
-    val alpha: Float
-)
-
-@Composable
-private fun SakuraPetals(modifier: Modifier = Modifier) {
-    val petals = remember {
-        List(22) {
-            Petal(
-                x0 = Random.nextFloat(),
-                y0 = Random.nextFloat(),
-                speed = 0.04f + Random.nextFloat() * 0.07f,
-                sway = 0.015f + Random.nextFloat() * 0.04f,
-                swaySpeed = 0.5f + Random.nextFloat() * 1.2f,
-                size = 4f + Random.nextFloat() * 6f,
-                alpha = 0.35f + Random.nextFloat() * 0.5f
-            )
-        }
-    }
-    var time by remember { mutableStateOf(0f) }
-
-    LaunchedEffect(Unit) {
-        val start = withFrameNanos { it }
-        while (true) {
-            withFrameNanos { now ->
-                time = (now - start) / 1_000_000_000f
-            }
-        }
-    }
-
-    Canvas(modifier) {
-        petals.forEach { p ->
-            val y = ((p.y0 + time * p.speed) % 1.2f) - 0.1f
-            val x = p.x0 + sin(time * p.swaySpeed) * p.sway
-            drawCircle(
-                color = Sakura.copy(alpha = p.alpha),
-                radius = p.size,
-                center = Offset(x * size.width, y * size.height)
-            )
         }
     }
 }
