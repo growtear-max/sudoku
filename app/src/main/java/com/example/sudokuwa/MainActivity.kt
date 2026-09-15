@@ -50,6 +50,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -362,8 +363,26 @@ private fun MainMenuScreen(
     }
 
     var newGameOpen by remember { mutableStateOf(false) }
+    var revealedCount by remember { mutableStateOf(0) }
 
-    // Прозрачность остальных кнопок — плавно исчезают при открытии подменю
+    // Последовательное появление подменю с задержками
+    LaunchedEffect(newGameOpen) {
+        if (newGameOpen) {
+            revealedCount = 0
+            delay(80)
+            revealedCount = 1     // Лёгкое
+            delay(160)
+            revealedCount = 2     // Среднее
+            delay(160)
+            revealedCount = 3     // Сложное
+            delay(160)
+            revealedCount = 4     // ← Назад
+        } else {
+            revealedCount = 0
+        }
+    }
+
+    // Прозрачность остальных кнопок
     val othersAlpha by animateFloatAsState(
         targetValue = if (newGameOpen) 0f else 1f,
         animationSpec = tween(durationMillis = 350),
@@ -371,7 +390,6 @@ private fun MainMenuScreen(
     )
 
     Box(Modifier.fillMaxSize().background(Washi)) {
-        // Видео-фон
         if (hasVideo) {
             VideoBackground(Modifier.fillMaxSize())
         } else if (fallbackRes != 0) {
@@ -383,10 +401,8 @@ private fun MainMenuScreen(
             )
         }
 
-        // Виньетка
         Vignette(Modifier.fillMaxSize())
 
-        // Градиенты: верх чуть темнее для читаемости заголовка, низ — для кнопок
         Box(
             Modifier
                 .fillMaxSize()
@@ -400,7 +416,6 @@ private fun MainMenuScreen(
                 )
         )
 
-        // Контент
         Column(
             Modifier
                 .fillMaxSize()
@@ -439,9 +454,10 @@ private fun MainMenuScreen(
                 )
             }
 
-            // ---------- Продолжить ----------
-            Spacer(Modifier.weight(0.95f))
+            // ===== Верхний спейсер — теперь меню ниже на 2 строки =====
+            Spacer(Modifier.weight(1.30f))
 
+            // ---------- Продолжить ----------
             Box(Modifier.alpha(othersAlpha).padding(start = 32.dp)) {
                 MenuTextButton(
                     title = "Продолжить",
@@ -450,47 +466,84 @@ private fun MainMenuScreen(
                 )
             }
 
-            // ---------- Новая игра ----------
+            // ---------- Новое судоку ----------
             Spacer(Modifier.height(36.dp))
 
             Box(Modifier.padding(start = 0.dp)) {
                 MenuTextButton(
-                    title = "Новая игра",
+                    title = "Новое судоку",
                     enabled = true,
                     onClick = { newGameOpen = !newGameOpen }
                 )
             }
 
-            // ---------- Подменю сложности ----------
-            AnimatedVisibility(
-                visible = newGameOpen,
-                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { -it / 4 },
-                exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it / 4 }
-            ) {
-                Column(Modifier.padding(start = 40.dp, top = 12.dp)) {
-                    MenuTextButton(
-                        title = "Лёгкая",
-                        small = true,
-                        onClick = { onNewGame(Difficulty.EASY) }
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    MenuTextButton(
-                        title = "Средняя",
-                        small = true,
-                        onClick = { onNewGame(Difficulty.MEDIUM) }
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    MenuTextButton(
-                        title = "Сложная",
-                        small = true,
-                        onClick = { onNewGame(Difficulty.HARD) }
-                    )
-                    Spacer(Modifier.height(18.dp))
-                    MenuTextButton(
-                        title = "← Назад",
-                        small = true,
-                        onClick = { newGameOpen = false }
-                    )
+            // ---------- Подменю сложности (зигзаг + поочерёдно) ----------
+            Column(Modifier.padding(top = 14.dp)) {
+
+                // Лёгкое
+                AnimatedVisibility(
+                    visible = revealedCount >= 1,
+                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+                ) {
+                    Box(Modifier.padding(start = 40.dp)) {
+                        MenuTextButton(
+                            title = "Лёгкое",
+                            small = true,
+                            onClick = { onNewGame(Difficulty.EASY) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Среднее — ниже и правее "Лёгкого"
+                AnimatedVisibility(
+                    visible = revealedCount >= 2,
+                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+                ) {
+                    Box(Modifier.padding(start = 80.dp)) {
+                        MenuTextButton(
+                            title = "Среднее",
+                            small = true,
+                            onClick = { onNewGame(Difficulty.MEDIUM) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Сложное — ниже и левее "Среднего"
+                AnimatedVisibility(
+                    visible = revealedCount >= 3,
+                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+                ) {
+                    Box(Modifier.padding(start = 40.dp)) {
+                        MenuTextButton(
+                            title = "Сложное",
+                            small = true,
+                            onClick = { onNewGame(Difficulty.HARD) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                // ← Назад — ниже "Сложного"
+                AnimatedVisibility(
+                    visible = revealedCount >= 4,
+                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+                ) {
+                    Box(Modifier.padding(start = 40.dp)) {
+                        MenuTextButton(
+                            title = "← Назад",
+                            small = true,
+                            onClick = { newGameOpen = false }
+                        )
+                    }
                 }
             }
 
@@ -553,7 +606,6 @@ private fun MenuTextButton(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Вертикальная черта-«мазок» слева
         Box(
             Modifier
                 .width(2.dp)
