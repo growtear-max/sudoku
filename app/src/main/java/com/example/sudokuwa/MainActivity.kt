@@ -365,24 +365,20 @@ private fun MainMenuScreen(
     var newGameOpen by remember { mutableStateOf(false) }
     var revealedCount by remember { mutableStateOf(0) }
 
-    // Последовательное появление подменю с задержками
+    // Последовательное появление подменю
     LaunchedEffect(newGameOpen) {
         if (newGameOpen) {
             revealedCount = 0
-            delay(80)
-            revealedCount = 1     // Лёгкое
-            delay(160)
-            revealedCount = 2     // Среднее
-            delay(160)
-            revealedCount = 3     // Сложное
-            delay(160)
-            revealedCount = 4     // ← Назад
+            delay(80);  revealedCount = 1   // Лёгкое
+            delay(160); revealedCount = 2   // Среднее
+            delay(160); revealedCount = 3   // Сложное
+            delay(160); revealedCount = 4   // ← Назад
         } else {
             revealedCount = 0
         }
     }
 
-    // Прозрачность остальных кнопок
+    // Прозрачность остальных кнопок основного меню
     val othersAlpha by animateFloatAsState(
         targetValue = if (newGameOpen) 0f else 1f,
         animationSpec = tween(durationMillis = 350),
@@ -390,6 +386,7 @@ private fun MainMenuScreen(
     )
 
     Box(Modifier.fillMaxSize().background(Washi)) {
+        // Видео-фон
         if (hasVideo) {
             VideoBackground(Modifier.fillMaxSize())
         } else if (fallbackRes != 0) {
@@ -401,8 +398,10 @@ private fun MainMenuScreen(
             )
         }
 
+        // Виньетка
         Vignette(Modifier.fillMaxSize())
 
+        // Градиенты для читаемости
         Box(
             Modifier
                 .fillMaxSize()
@@ -411,165 +410,178 @@ private fun MainMenuScreen(
                         0.0f to Color.Black.copy(alpha = 0.55f),
                         0.18f to Color.Transparent,
                         0.55f to Color.Transparent,
-                        1.0f to Color.Black.copy(alpha = 0.55f)
+                        1.0f to Color.Black.copy(alpha = 0.45f)
                     )
                 )
         )
 
+        // ============ ЗАГОЛОВОК (сверху) ============
         Column(
             Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(top = 60.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ---------- Заголовок ----------
-            Spacer(Modifier.height(60.dp))
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "Судоку",
-                    fontSize = 50.sp,
-                    fontWeight = FontWeight.Light,
-                    color = Washi,
-                    letterSpacing = 6.sp,
-                    style = TextStyle(
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.75f),
-                            offset = Offset(0f, 3f),
-                            blurRadius = 14f
-                        )
+            Text(
+                "Судоку",
+                fontSize = 50.sp,
+                fontWeight = FontWeight.Light,
+                color = Washi,
+                letterSpacing = 6.sp,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.75f),
+                        offset = Offset(0f, 3f),
+                        blurRadius = 14f
                     )
                 )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "г а р м о н и я   ч и с е л",
-                    fontSize = 12.sp,
-                    color = Washi.copy(alpha = 0.8f),
-                    letterSpacing = 4.sp,
-                    style = TextStyle(
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.6f),
-                            offset = Offset(0f, 2f),
-                            blurRadius = 8f
-                        )
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "г а р м о н и я   ч и с е л",
+                fontSize = 12.sp,
+                color = Washi.copy(alpha = 0.8f),
+                letterSpacing = 4.sp,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        offset = Offset(0f, 2f),
+                        blurRadius = 8f
                     )
                 )
-            }
+            )
+        }
 
-            // ===== Верхний спейсер — теперь меню ниже на 2 строки =====
-            Spacer(Modifier.weight(1.30f))
+        // ============ ПРОДОЛЖИТЬ ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 420.dp, start = 40.dp)
+                .alpha(othersAlpha)
+        ) {
+            MenuTextButton(
+                title = "Продолжить",
+                enabled = hasActiveGame && !newGameOpen,
+                onClick = onContinue
+            )
+        }
 
-            // ---------- Продолжить ----------
-            Box(Modifier.alpha(othersAlpha).padding(start = 32.dp)) {
+        // ============ НОВОЕ СУДОКУ ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 340.dp, start = 16.dp)
+        ) {
+            MenuTextButton(
+                title = "Новое судоку",
+                enabled = true,
+                onClick = { newGameOpen = !newGameOpen }
+            )
+        }
+
+        // ============ НАСТРОЙКИ ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 260.dp, start = 60.dp)
+                .alpha(othersAlpha)
+        ) {
+            MenuTextButton(
+                title = "Настройки",
+                enabled = !newGameOpen,
+                onClick = { /* later */ }
+            )
+        }
+
+        // ============ ОБ ИГРЕ ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 200.dp, start = 92.dp)
+                .alpha(othersAlpha)
+        ) {
+            MenuTextButton(
+                title = "Об игре",
+                enabled = !newGameOpen,
+                onClick = { /* later */ }
+            )
+        }
+
+        // ============ ПОДМЕНЮ: ЛЁГКОЕ (на месте Настроек) ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 260.dp, start = 60.dp)
+        ) {
+            AnimatedVisibility(
+                visible = revealedCount >= 1,
+                enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+            ) {
                 MenuTextButton(
-                    title = "Продолжить",
-                    enabled = hasActiveGame && !newGameOpen,
-                    onClick = onContinue
+                    title = "Лёгкое",
+                    small = true,
+                    onClick = { onNewGame(Difficulty.EASY) }
                 )
             }
+        }
 
-            // ---------- Новое судоку ----------
-            Spacer(Modifier.height(36.dp))
-
-            Box(Modifier.padding(start = 0.dp)) {
+        // ============ ПОДМЕНЮ: СРЕДНЕЕ ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 200.dp, start = 60.dp)
+        ) {
+            AnimatedVisibility(
+                visible = revealedCount >= 2,
+                enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+            ) {
                 MenuTextButton(
-                    title = "Новое судоку",
-                    enabled = true,
-                    onClick = { newGameOpen = !newGameOpen }
+                    title = "Среднее",
+                    small = true,
+                    onClick = { onNewGame(Difficulty.MEDIUM) }
                 )
             }
+        }
 
-            // ---------- Подменю сложности (зигзаг + поочерёдно) ----------
-            Column(Modifier.padding(top = 14.dp)) {
-
-                // Лёгкое
-                AnimatedVisibility(
-                    visible = revealedCount >= 1,
-                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
-                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
-                ) {
-                    Box(Modifier.padding(start = 40.dp)) {
-                        MenuTextButton(
-                            title = "Лёгкое",
-                            small = true,
-                            onClick = { onNewGame(Difficulty.EASY) }
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // Среднее — ниже и правее "Лёгкого"
-                AnimatedVisibility(
-                    visible = revealedCount >= 2,
-                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
-                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
-                ) {
-                    Box(Modifier.padding(start = 80.dp)) {
-                        MenuTextButton(
-                            title = "Среднее",
-                            small = true,
-                            onClick = { onNewGame(Difficulty.MEDIUM) }
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // Сложное — ниже и левее "Среднего"
-                AnimatedVisibility(
-                    visible = revealedCount >= 3,
-                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
-                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
-                ) {
-                    Box(Modifier.padding(start = 40.dp)) {
-                        MenuTextButton(
-                            title = "Сложное",
-                            small = true,
-                            onClick = { onNewGame(Difficulty.HARD) }
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-
-                // ← Назад — ниже "Сложного"
-                AnimatedVisibility(
-                    visible = revealedCount >= 4,
-                    enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
-                    exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
-                ) {
-                    Box(Modifier.padding(start = 40.dp)) {
-                        MenuTextButton(
-                            title = "← Назад",
-                            small = true,
-                            onClick = { newGameOpen = false }
-                        )
-                    }
-                }
-            }
-
-            // ---------- Настройки ----------
-            Spacer(Modifier.height(36.dp))
-
-            Box(Modifier.alpha(othersAlpha).padding(start = 60.dp)) {
+        // ============ ПОДМЕНЮ: СЛОЖНОЕ ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 140.dp, start = 60.dp)
+        ) {
+            AnimatedVisibility(
+                visible = revealedCount >= 3,
+                enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+            ) {
                 MenuTextButton(
-                    title = "Настройки",
-                    enabled = !newGameOpen,
-                    onClick = { /* later */ }
+                    title = "Сложное",
+                    small = true,
+                    onClick = { onNewGame(Difficulty.HARD) }
                 )
             }
+        }
 
-            // ---------- Об игре ----------
-            Spacer(Modifier.height(20.dp))
-
-            Box(Modifier.alpha(othersAlpha).padding(start = 92.dp)) {
+        // ============ ПОДМЕНЮ: ← НАЗАД ============
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 80.dp, start = 60.dp)
+        ) {
+            AnimatedVisibility(
+                visible = revealedCount >= 4,
+                enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 4 },
+                exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
+            ) {
                 MenuTextButton(
-                    title = "Об игре",
-                    enabled = !newGameOpen,
-                    onClick = { /* later */ }
+                    title = "← Назад",
+                    small = true,
+                    onClick = { newGameOpen = false }
                 )
             }
-
-            Spacer(Modifier.weight(1f))
         }
     }
 }
