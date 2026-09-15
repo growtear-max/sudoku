@@ -365,20 +365,18 @@ private fun MainMenuScreen(
     var newGameOpen by remember { mutableStateOf(false) }
     var revealedCount by remember { mutableStateOf(0) }
 
-    // Последовательное появление подменю
     LaunchedEffect(newGameOpen) {
         if (newGameOpen) {
             revealedCount = 0
-            delay(80);  revealedCount = 1   // Лёгкое
-            delay(160); revealedCount = 2   // Среднее
-            delay(160); revealedCount = 3   // Сложное
-            delay(160); revealedCount = 4   // ← Назад
+            delay(80);  revealedCount = 1
+            delay(160); revealedCount = 2
+            delay(160); revealedCount = 3
+            delay(160); revealedCount = 4
         } else {
             revealedCount = 0
         }
     }
 
-    // Прозрачность остальных кнопок основного меню
     val othersAlpha by animateFloatAsState(
         targetValue = if (newGameOpen) 0f else 1f,
         animationSpec = tween(durationMillis = 350),
@@ -386,7 +384,6 @@ private fun MainMenuScreen(
     )
 
     Box(Modifier.fillMaxSize().background(Washi)) {
-        // Видео-фон
         if (hasVideo) {
             VideoBackground(Modifier.fillMaxSize())
         } else if (fallbackRes != 0) {
@@ -398,10 +395,8 @@ private fun MainMenuScreen(
             )
         }
 
-        // Виньетка
         Vignette(Modifier.fillMaxSize())
 
-        // Градиенты для читаемости
         Box(
             Modifier
                 .fillMaxSize()
@@ -415,7 +410,7 @@ private fun MainMenuScreen(
                 )
         )
 
-        // ============ ЗАГОЛОВОК (сверху) ============
+        // ---------- ЗАГОЛОВОК ----------
         Column(
             Modifier
                 .fillMaxWidth()
@@ -453,7 +448,7 @@ private fun MainMenuScreen(
             )
         }
 
-        // ============ ПРОДОЛЖИТЬ ============
+        // ---------- ПРОДОЛЖИТЬ ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
@@ -467,7 +462,7 @@ private fun MainMenuScreen(
             )
         }
 
-        // ============ НОВОЕ СУДОКУ ============
+        // ---------- НОВОЕ СУДОКУ ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
@@ -480,7 +475,7 @@ private fun MainMenuScreen(
             )
         }
 
-        // ============ НАСТРОЙКИ ============
+        // ---------- НАСТРОЙКИ ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
@@ -494,11 +489,11 @@ private fun MainMenuScreen(
             )
         }
 
-        // ============ ОБ ИГРЕ ============
+        // ---------- ОБ ИГРЕ (теперь 180dp, чтобы расстояние до Настроек было 80dp) ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(bottom = 200.dp, start = 92.dp)
+                .padding(bottom = 180.dp, start = 92.dp)
                 .alpha(othersAlpha)
         ) {
             MenuTextButton(
@@ -508,7 +503,7 @@ private fun MainMenuScreen(
             )
         }
 
-        // ============ ПОДМЕНЮ: ЛЁГКОЕ (на месте Настроек) ============
+        // ---------- ПОДМЕНЮ: ЛЁГКОЕ (на месте Настроек) ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
@@ -521,17 +516,16 @@ private fun MainMenuScreen(
             ) {
                 MenuTextButton(
                     title = "Лёгкое",
-                    small = true,
                     onClick = { onNewGame(Difficulty.EASY) }
                 )
             }
         }
 
-        // ============ ПОДМЕНЮ: СРЕДНЕЕ ============
+        // ---------- ПОДМЕНЮ: СРЕДНЕЕ (заметно правее) ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(bottom = 200.dp, start = 60.dp)
+                .padding(bottom = 180.dp, start = 140.dp)
         ) {
             AnimatedVisibility(
                 visible = revealedCount >= 2,
@@ -540,17 +534,16 @@ private fun MainMenuScreen(
             ) {
                 MenuTextButton(
                     title = "Среднее",
-                    small = true,
                     onClick = { onNewGame(Difficulty.MEDIUM) }
                 )
             }
         }
 
-        // ============ ПОДМЕНЮ: СЛОЖНОЕ ============
+        // ---------- ПОДМЕНЮ: СЛОЖНОЕ (слегка правее) ----------
         Box(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(bottom = 140.dp, start = 60.dp)
+                .padding(bottom = 100.dp, start = 90.dp)
         ) {
             AnimatedVisibility(
                 visible = revealedCount >= 3,
@@ -559,17 +552,16 @@ private fun MainMenuScreen(
             ) {
                 MenuTextButton(
                     title = "Сложное",
-                    small = true,
                     onClick = { onNewGame(Difficulty.HARD) }
                 )
             }
         }
 
-        // ============ ПОДМЕНЮ: ← НАЗАД ============
+        // ---------- ПОДМЕНЮ: НАЗАД (правый нижний угол) ----------
         Box(
             Modifier
-                .align(Alignment.BottomStart)
-                .padding(bottom = 80.dp, start = 60.dp)
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 40.dp, end = 32.dp)
         ) {
             AnimatedVisibility(
                 visible = revealedCount >= 4,
@@ -577,8 +569,7 @@ private fun MainMenuScreen(
                 exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 4 }
             ) {
                 MenuTextButton(
-                    title = "← Назад",
-                    small = true,
+                    title = "Назад",
                     onClick = { newGameOpen = false }
                 )
             }
